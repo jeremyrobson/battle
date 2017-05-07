@@ -1,0 +1,738 @@
+<!doctype html>
+<html>
+
+<head>
+
+<script>
+
+Array.prototype.popRandom = function() {
+    return this.splice(Math.floor(Math.random() * this.length), 1)[0];
+};
+
+const INTERVAL = 1000;
+
+class BattleTile {
+    constructor(x, y) {
+        this.x = x;
+        this.y = y;
+        this.color = "rgb(0,200,0)";
+        this.units = []; //[occupied unit, travelling unit]
+    }
+
+    addUnit(unit) {
+        this.units.push(unit);
+    }
+
+    removeUnit(unit) {
+        this.units = this.units.filter(function(u) {
+            return u.id != unit.id;
+        });
+    }
+
+    draw(ctx) {
+        ctx.fillStyle = this.color;
+        ctx.fillRect(this.x * 60, this.y * 60, 59, 59);
+    }
+}
+
+class BattleMap {
+    constructor(width, height) {
+        this.width = width;
+        this.height = height;
+        this.tile = [];
+        this.moveList = null;
+        for (var x=0; x<width; x++) {
+            this.tile[x] = [];
+            for (var y=0; y<height; y++) {
+                this.tile[x][y] = new BattleTile(x, y);
+            }
+        }
+
+        this.openSpots = [];
+        for (var x=0; x<8; x++) {
+            for (var y=0; y<8; y++) {
+                this.openSpots.push({ x: x, y: y});
+            }
+        }
+    }
+
+    update() {
+
+    }
+
+    draw(ctx) {
+        ctx.fillStyle = "rgb(0,0,0)";
+        ctx.fillRect(0,0,640,480);
+        for (var x=0; x<this.width; x++) {
+            for (var y=0; y<this.height; y++) {
+                this.tile[x][y].draw(ctx);
+            }
+        }
+
+        if (this.moveList) {
+            this.moveList.forEach(function(m) {
+                var c = Math.floor(m.safetyScore * 255);
+                ctx.fillStyle = "rgba(0,0," + c + ",0.8)";
+                ctx.fillRect(m.x * 60, m.y * 60, 59, 59);
+            });
+        }
+    }
+
+    getUnit(x, y) {
+        if (this.tile[x] && this.tile[x][y]) {
+            return this.tile[x][y].units[0];
+        }
+    }
+
+    addUnit(unit) {
+        if (unit.x == undefined || unit.y == undefined) {
+            var spot = this.openSpots.popRandom();
+            unit.x = spot.x;
+            unit.y = spot.y;
+        }
+
+        this.tile[unit.x][unit.y].addUnit(unit);
+    }
+
+    moveUnit(unit, x, y) {
+        this.tile[unit.x][unit.y].removeUnit(unit);
+        unit.x = x;
+        unit.y = y;
+        this.tile[x][y].addUnit(unit);
+    }
+}
+
+function getSafetyScore(map, units, unit, x, y) {
+    var safetyScore = 0;
+
+    //filter out self
+    var otherUnits = units.filter(function(u) {
+        return u.id != unit.id;
+    });
+
+    otherUnits.forEach(function(u) {
+        var dx = x - u.x;
+        var dy = y - u.y;
+        var distance = Math.sqrt(dx*dx + dy*dy);
+        if (distance == 0) { //this should never happen
+            return;
+        }
+        if (u.team == unit.team) {
+            safetyScore += (1 / distance);
+        }
+        else {
+            safetyScore -= (1 / distance);
+        }
+    });
+
+    safetyScore = safetyScore / otherUnits.length;
+
+    return safetyScore;
+}
+
+function getBestMove(map, units, unit) {
+    var moveList = getMoveList(map, units, unit);
+
+    //if healthy move towards closest enemy unit
+    //if near-death, run to safest spot
+
+    var bestMove = moveList.sort(function(a, b) {
+        return b.score - a.score;
+    })[0];
+
+    return new BattleMove(unit, bestMove);
+}
+
+function createBinaryMap(map, width, height) {
+    var bmap = [];
+    for (var x=0; x<width; x++) {
+        bmap[x] = [];
+        for (var y=0; y<height; y++) {
+            bmap[x][y] = 0;
+        }
+    }
+    return bmap;
+}
+
+function getMapNodes(map, units, unit) {
+    var binaryMap = createBinaryMap(map, 8, 8);
+    binaryMap[unit.x][unit.y] = 1;
+
+    var i = 0, steps = 0;
+    var xList = [0, -1, 0, 1];
+    var yList = [-1, 0, 1, 0];
+    var minSafetyScore = 0, maxSafetyScore = 0;
+
+    var nodeList = [{
+        x: unit.x,
+        y: unit.y,
+        parent: null,
+        steps: 0,
+        safetyScore: 0
+    }];
+
+    while (i < nodeList.length) {
+        for (var j=0; j<4; j++) {
+
+            var x = nodeList[i].x + xList[j];
+            var y = nodeList[i].y + yList[j];
+
+            //if node is off the map
+            if (x < 0 || y < 0 || x >= map.width || y >= map.height) {
+                continue; //skip this node
+            }
+
+            //if node has already been visited
+            if (binaryMap[x][y] === 1) {
+                continue; //skip this node
+            }
+
+            var mapUnit = map.tile[x][y].units[0];
+
+            //if unit exists on node and is enemy
+            if (mapUnit && mapUnit.team != unit.team) {
+                //if enemy is not dead
+                if (mapUnit.status != "dead") {
+                    continue; //skip this node
+                }
+            }
+
+            var safetyScore = getSafetyScore(map, units, unit, x, y);
+            minSafetyScore = safetyScore < minSafetyScore ? safetyScore : minSafetyScore;
+            maxSafetyScore = safetyScore > maxSafetyScore ? safetyScore : maxSafetyScore;
+
+            nodeList.push({
+                x: x,
+                y: y,
+                parent: nodeList[i],
+                steps: nodeList[i].steps + 1,
+                safetyScore: safetyScore
+            });
+            binaryMap[x][y] = 1;
+        }
+        i++;
+    }
+
+    //normalize safety scores
+    nodeList.forEach(function(node) {
+        node.safetyScore = (node.safetyScore - minSafetyScore) / (maxSafetyScore - minSafetyScore);
+    });
+
+    return nodeList;
+}
+
+function getPath(move) {
+    var path = [];
+
+    var node = move;
+
+    while (node) {
+        path.push(node);
+        node = node.parent;
+    }
+
+    return path.reverse();
+}
+
+function createSpread(x, y, spread) {
+    var newspread = [];
+    spread.forEach(function(s) {
+        newspread.push({
+            x: s[0] + x,
+            y: s[1] + y
+        });
+    });
+    return newspread;
+}
+
+function createDiamond(x, y, range, includeCenter) {
+    var diamond = [];
+    for (var i=-range; i<=range; i++) {
+        for (var j=-range; j<=range; j++) {
+            if (!includeCenter && i == j) {
+                continue;
+            }
+            else if (Math.abs(i) + Math.abs(j) <= range) {
+                diamond.push({
+                    x: i + x,
+                    y: j + y
+                });
+            }
+        }
+    }
+    return diamond;
+}
+
+//todo: targets can also be tiles
+function getTargetList(map, unit, move, spread) {
+    var targetList = [];
+    spread.forEach(function(s) {
+        var mapunit = map.getUnit(s.x, s.y);
+        if (mapunit && mapunit.id != unit.id) { //do not target self based on map location
+            targetList.push(mapunit);
+        }
+        if (s.x == move.x && s.y == move.y) { //only target self in new move location
+            targetList.push(unit);
+        }
+    });
+    return targetList;
+}
+
+//gets list of possible move locations
+function getMoveList(map, units, unit) {
+    var moveList = getMapNodes(map, units, unit);
+    
+    //filter out nodes that are occupied by any unit besides self
+    moveList = moveList.filter(function(n) {
+        var u = map.tile[n.x][n.y].units[0];
+        return !u || u.id == unit.id;
+    });
+
+    return moveList;
+}
+
+//get the best action for a particular move case
+function getBestAction(map, units, unit, move) {
+    var actionList = [new DoNothing(map, unit)];
+
+    unit.actionList.forEach(function(a) {
+        var diamond = createDiamond(move.x, move.y, a.range, false);
+
+        diamond.forEach(function(d) {
+            var spread = createSpread(d.x, d.y, a.spread);
+            var targetList = getTargetList(map, unit, move, spread);
+            if (targetList.length > 0) {
+                actionList.push(new BattleAction(unit, move, a, d.x, d.y, spread, targetList));
+            }
+        });
+    });
+
+    //calculate score here
+
+    actionList.sort(function(a, b) {
+        return b.score - a.score;
+    });
+
+    return actionList[0];
+}
+
+function getBestActionMove(map, units, unit) {
+    var moveList = getMoveList(map, units, unit);
+    map.moveList = moveList;
+    var moveActionList = [];
+    var bestActionMove;
+
+    if (moveList.length == 0) {
+        console.error("moveList cannot be 0!");
+    }
+
+    moveList.forEach(function(m) {
+        moveActionList.push(getBestAction(map, units, unit, m));
+    });
+
+    moveActionList.sort(function(a, b) {
+        return b.score - a.score;
+    });
+
+    bestActionMove = moveActionList[0];
+
+    return bestActionMove;
+}
+
+class BattleUnit {
+    constructor(team) {
+        this.id = Math.floor(Math.random() * 100000000);
+        this.team = team;
+        this.color = ["rgb(255,0,0)","rgb(0,255,0)"][team];
+        this.sprite = Math.floor(Math.random() * 90) + 10;
+        this.at = 0;
+        this.hp = Math.floor(Math.random() * 25) + 50;
+        this.agl = Math.floor(Math.random() * 5) + 1;
+        this.actionList = [{ "name":"Bash", "range":1, "spread":[[0,0]] }];
+        this.state = "";
+        this.moved = false;
+        this.acted = false;
+        this.charging = false;
+        this.targetList = [];
+
+        this.x = undefined;
+        this.y = undefined;
+    }
+
+    update() {
+
+    }
+
+    draw(ctx) {
+        var dx = this.x * 60;
+        var dy = this.y * 60;
+
+        ctx.fillStyle = this.color;
+        ctx.textBaseline = "top";
+        ctx.font = "48px Arial";
+        ctx.fillText(this.sprite, dx, dy);
+
+        ctx.strokeStyle = "rgb(255,255,0)";
+        ctx.lineWidth = 2;
+        if (this.targetList) {
+            this.targetList.forEach(function(t) {
+                ctx.beginPath();
+                ctx.moveTo(dx+30, dy+30);
+                ctx.lineTo(t.x*60+30,t.y*60+30);
+                ctx.stroke();
+            });
+        }
+
+        if (this.charging) {
+            ctx.fillStyle = "rgba(255,255,255,1.0)";
+            ctx.font = "12px Arial";
+            ctx.fillText("Charging", dx, dy);
+        }
+    }
+
+    applyDamage() {
+        this.hp -= 1;
+        console.log(this.sprite + " was damaged for " + 1 + " hp.");
+    }
+
+    done() {
+        if (this.moved && this.acted) { this.at = 0; }
+        else if (this.moved) { this.at = 20; }
+        else if (this.acted) { this.at = 20; }
+        else { this.at = 40; }
+        this.moved = false;
+        this.acted = false;
+        this.charging = false;
+        console.log(this.sprite + " is done");
+    }
+
+    toString() {
+        return this.sprite + "(hp:" + this.hp + ")";
+    }
+}
+
+class BattleParty {
+    constructor(team) {
+        this.units = [];
+        this.team = team;
+        for (var i=0; i<5; i++) {
+            this.units.push(new BattleUnit(team));
+        }
+        
+    }
+}
+
+class BattleMove {
+    constructor(unit, move) {
+        this.unit = unit;
+        this.move = move;
+        this.path = getPath(move);
+        this.ct = 0;
+    }
+
+    invoke(map) {
+        /*
+        if (!this.path) {
+            var mapList = getMapNodes(map, this.unit.x, this.unit.y, this.unit.team);
+            var bestMove = getBestMove(map, this.unit, mapList);
+            this.path = getPath([bestMove], bestMove.x, bestMove.y);
+        }
+        */
+
+        var nextMove = this.path.shift();
+
+        if (nextMove) {
+            map.moveUnit(this.unit, nextMove.x, nextMove.y);
+            return this;
+        }
+        else {
+            this.done();
+            return false;
+        }
+    }
+
+    done() {
+        this.unit.moved = true;
+    }
+
+    toString() {
+        return this.unit.sprite + " MOVE! CT: " + this.ct;
+    }
+}
+
+class BattleAction {
+    constructor(unit, move, action, x, y, spread, targetList) {
+        this.unit = unit;
+        this.move = move; //where the unit must be in order to complete the action
+        this.action = action;
+        this.x = x;
+        this.y = y;
+        this.spread = spread;
+        this.targetList = targetList;
+        this.ct = Math.floor(Math.random() * 50) + 1;
+
+        this.score = targetList.length + move.safetyScore;
+    }
+
+    invoke(map) {
+        console.log(this.unit.toString() + " invoked an action.");
+
+        this.targetList.forEach(function(t) {
+            t.applyDamage();
+        });
+
+        this.done();
+    }
+
+    done() {
+        this.unit.acted = true;
+        this.unit.charging = false;
+    }
+
+    toString() {
+        return this.unit.sprite + " ACTION! CT: " + this.ct;
+    }
+}
+
+class DoNothing {
+    constructor(map, unit) {
+        this.map = map;
+        this.unit = unit;
+        this.score = 0;
+        this.ct = 0;
+    }
+
+    invoke(map) {
+        this.done();
+    }
+
+    done() {
+        this.unit.acted = true;
+    }
+
+    toString() {
+        return this.unit.sprite + " did nothing!";
+    }
+}
+
+function getNextActiveUnit(units) {
+    var nextUnit;
+
+    var availableUnits = units.filter(function(u) {
+        return !u.charging; //also check if alive
+    });
+
+    if (availableUnits.length == 0) {
+        return null;
+    }
+
+    availableUnits.sort(function(a, b) {
+        return b.at - a.at;
+    });
+    
+    availableUnits.some(function(u) {
+        if (u.at >= 100) {
+            nextUnit = u;
+            return true;
+        }
+    });
+
+    if (nextUnit) {
+        return nextUnit;
+    }
+
+    while (!nextUnit) {
+        availableUnits.forEach(function(u) {
+            u.at += u.agl;
+        });
+
+        availableUnits.sort(function(a, b) {
+            return b.at - a.at;
+        });
+
+        availableUnits.some(function(u) {
+            if (u.at >= 100) {
+                nextUnit = u;
+                return true;
+            }
+        });
+    }
+
+    return nextUnit;
+}
+
+function getNextAction(battle, units) {
+    var nextAction;
+
+    if (battle.queue.length > 0) {
+        battle.queue.forEach(function(q) {
+            q.ct = q.ct - 1;
+        });
+
+        battle.queue.sort(function(a,b) {
+            return a.ct - b.ct;
+        });
+
+        if (battle.queue[0].ct <= 0) {
+            nextAction = battle.queue.shift();
+        }
+    }
+
+    if (!nextAction) {
+        var nextUnit = getNextActiveUnit(units);
+        if (nextUnit) {
+            if (nextUnit.acted == false && nextUnit.moved == false) { //case A
+                var bestActionMove = getBestActionMove(battle.map, units, nextUnit);
+                //if (bestActionMove == null) {
+                //    console.log("Error AAA", nextUnit);
+                //}
+
+                //if unit does not need to move to act
+                if (bestActionMove.move.x == nextUnit.x && bestActionMove.move.y == nextUnit.y) {
+                    battle.queueActionMove(bestActionMove); //queue the action
+                }
+                else { //if unit has to move to carry out action
+                    battle.queueActionMove(new BattleMove(nextUnit, bestActionMove.move)); //queue the move
+                }
+            }
+            else if (nextUnit.acted == true && nextUnit.moved == false) { //case B
+                var bestMove = getBestMove(battle.map, units, nextUnit);
+                //if (bestMove == null) {
+                //    console.log("Error BBB", nextUnit);
+                //}
+                battle.queueActionMove(bestMove);
+            }
+            else if (nextUnit.acted == false && nextUnit.moved == true) { //case C
+                var node = {
+                    x: nextUnit.x,
+                    y: nextUnit.y,
+                    parent: null,
+                    steps: 0,
+                    safetyScore: getSafetyScore(battle.map, units, nextUnit, nextUnit.x, nextUnit.y)
+                };
+
+                //the hope is that this action is the same one calculated in case A afte the move is done
+                var bestAction = getBestAction(battle.map, units, nextUnit, node);
+                //if (bestAction == null) {
+                //    console.log("Error CCC", nextUnit);
+                //}
+                battle.queueActionMove(bestAction);
+            }
+            else { //case D
+                nextUnit.done();
+                nextAction = null;
+            }
+        }
+    }
+
+    return nextAction;
+}
+
+class Battle {
+    constructor(party1, party2) {
+        this.map = new BattleMap(8, 8);
+        this.units = [];
+        this.addUnits(party1.units);
+        this.addUnits(party2.units);
+        this.queue = [];
+        this.log = "";
+        this.nextAction = null;
+    }
+
+    update() {
+        if (!this.nextAction) {
+            this.nextAction = getNextAction(this, this.units);
+        }
+
+        if (this.nextAction) {
+            this.nextAction = this.nextAction.invoke(this.map);
+        }
+
+        this.log = "";
+
+        this.queue.forEach(function(q) {
+            this.log += q.toString() + "\n";
+        }, this);
+
+        document.getElementById("log").innerHTML = this.log;
+
+        /*
+        this.map.update();
+
+        this.units.forEach(function(u) {
+            u.update();
+        });
+        */
+    }
+
+    draw(ctx) {
+        this.map.draw(ctx);
+
+        this.units.forEach(function(u) {
+            u.draw(ctx);
+        });
+    }
+
+    addUnits(units) {
+        this.units = this.units.concat(units);
+        units.forEach(function(u) {
+            this.map.addUnit(u);
+        }, this);
+    }
+
+    queueActionMove(actionMove) {
+        if (actionMove.ct > 0) {
+            actionMove.unit.charging = true;
+        }
+
+        if (actionMove.targetList) {
+            actionMove.unit.targetList = actionMove.targetList;
+        }
+
+        this.queue.push(actionMove);
+    }
+}
+
+var canvas, context, battle, lastTick;
+
+function loop() {
+
+    if (Date.now() > lastTick + INTERVAL) {
+        battle.update();
+        draw();
+        lastTick = Date.now();
+    }
+
+    requestAnimationFrame(loop);
+}
+
+function draw() {
+    battle.draw(context);
+}
+
+window.onload = function() {
+    canvas = document.getElementById("canvas");
+    context = canvas.getContext("2d");
+
+    var party1 = new BattleParty(0);
+    var party2 = new BattleParty(1);
+
+    battle = new Battle(party1, party2);
+    lastTick = 0;
+
+    loop();
+};
+
+</script>
+
+</head>
+
+<body>
+
+<canvas id="canvas" width="640" height="480"></canvas>
+
+<textarea id="log" rows="12" cols="50"></textarea>
+
+</body>
+
+</html>

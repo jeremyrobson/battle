@@ -1,0 +1,119 @@
+<!doctype html>
+<html>
+
+<head>
+
+<script>
+
+var canvas, context;
+var map;
+var colors = ["rgb(0,0,0)", "rgb(255,255,255)", "rgb(255,255,255)"];
+var start = { x: 0, y: 0 }, end = { x: 0, y: 0};
+var points = [];
+
+function raytrace(x0, y0, x1, y1) {
+    var  squares = [];
+
+    var dx = Math.abs(x1 - x0);
+    var dy = Math.abs(y1 - y0);
+    var x = x0;
+    var y = y0;
+    var n = 1 + dx + dy;
+    var x_inc = (x1 > x0) ? 1 : -1;
+    var y_inc = (y1 > y0) ? 1 : -1;
+    var error = dx - dy;
+    dx *= 2;
+    dy *= 2;
+
+    for (; n > 0; --n) {
+
+        if (!map[x][y]) {
+            break;
+        }
+
+        squares.push({x: x, y: y});
+
+        if (error > 0) {
+            x += x_inc;
+            error -= dy;
+        }
+        else {
+            y += y_inc;
+            error += dx;
+        }
+    }
+
+    return squares;
+}
+
+function init() {
+    map = [];
+    for (var x=0; x<32; x++) {
+        map[x] = [];
+        for (var y=0; y<32; y++) {
+            map[x][y] = Math.floor(Math.random() * 3);
+        }
+    }
+}
+
+function mouseDown(e) {
+    var mx = Math.floor(e.offsetX / 16);
+    var my = Math.floor(e.offsetY / 16);
+    start = { x: mx, y: my };
+}
+
+function mouseMove(e) {
+    var mx = Math.floor(e.offsetX / 16);
+    var my = Math.floor(e.offsetY / 16);
+    end = { x: mx, y: my };
+
+    points = raytrace(start.x, start.y, end.x, end.y);
+
+    draw();
+}
+
+function draw() {
+    context.clearRect(0, 0, 512, 512);
+
+    for (var x=0; x<32; x++) {
+        for (var y=0; y<32; y++) {
+            context.fillStyle = colors[map[x][y]];
+            context.fillRect(x * 16, y * 16, 16, 16);
+        }
+    }
+
+    points.forEach(function(p) {
+        context.fillStyle = "rgba(255, 255, 0, 0.8)";
+        context.fillRect(p.x * 16, p.y * 16, 16, 16);
+        context.lineWidth = 1;
+        context.strokeStyle = "rgb(0,0,255)";
+        context.strokeRect(p.x * 16, p.y * 16, 16, 16);
+    });
+
+    context.strokeStyle = "rgb(255, 0, 255)";
+    context.lineWidth = 2;
+    context.beginPath();
+    context.moveTo(start.x * 16 + 8, start.y * 16 + 8);
+    context.lineTo(end.x * 16 + 8, end.y * 16 + 8);
+    context.stroke();
+}
+
+window.onload = function() {
+    canvas = document.getElementById("canvas");
+    context = canvas.getContext("2d");
+    canvas.onmousemove = mouseMove;
+    canvas.onmousedown = mouseDown;
+    init()
+};
+
+</script>
+
+</head>
+
+<body>
+
+<canvas id="canvas" width="512" height="512"></canvas>
+
+</body>
+
+</html>

@@ -1,0 +1,275 @@
+<!doctype html>
+<html>
+
+<head>
+
+<script src="movement.js"></script>
+<script>
+
+var INTERVAL = 100;
+
+function getBestMove(battle, unit) {
+    var bestMove = new BattleMove(battle, unit);
+
+    var moveList = getMoveList(battle.map, battle.units, unit);
+
+    //check to make sure move won't interfere with charging action
+
+    //each possible move is scored based on safety, steps
+    //if a unit has not acted yet, the safety scores are halved
+    //if a unit has acted, the safety scores are doubled
+    //number of steps/10 increases score
+    //if the unit is charging a sticky action, no change in score
+    //if the unit is charging a non-sticky action, add resulting damage to score
+    //if the unit is beign targeted by a tile-based action, calculate the consequences of moving
+    //if the unit is being targetd by a unit-based action, also calculate the consequences of moving
+    //(for example, moving next to the caster or other units might be beneficial)
+
+    return bestMove;
+}
+
+class BattleQueue {
+    constructor(units) {
+        this.list = [];
+        this.buffer = [];
+
+        units.forEach(function(u) {
+            this.list.push(u);
+        }, this);
+    }
+
+    tick() {
+        this.list = this.list.filter(function(item) {
+            return !item.remove;
+        });
+
+        this.sort();
+
+        if (this.list[0].ready) {
+            return this.list[0];
+        }
+
+        this.list.forEach(function(item) {
+            item.tick();
+        });
+
+        return null;
+    }
+
+    add(item) {
+        this.list.push(item);
+        this.sort();
+    }
+
+    sort() {
+        this.list.sort(function(a, b) {
+            if (a.ctr < b.ctr) return -1;
+            if (a.ctr > b.ctr) return 1;
+            if (a.priority > b.priority) return -1;
+            if (a.priority < b.priority) return 1;
+            if (a.id < b.id) return -1;
+            if (a.id > b.id) return 1;
+            return 0; //this should never happen
+        });
+    }
+
+    toString() {
+        var outputText = "";
+        this.list.forEach(function(item) {
+            outputText += item.toString() + "\n";
+        });
+        return outputText;
+    }
+}
+
+class BattleMove {
+    constructor(battle, unit, node) {
+        this.unit = unit;
+        this.node = node;
+        this.ctr = 0;
+        this.priority = 1;
+        this.ready = true;
+        this.remove = false;
+    }
+
+    invoke() {
+        battle.map.moveUnit(unit, this.node);
+        return null;
+    }
+
+    done() {
+        console.log("Unit No. " + this.unit.sprite + " moved to " + this.node.toString());
+        this.remove = true;
+        this.unit.moved = true;
+        this.unit.actionmove = null;
+    }
+}
+
+class BattleAction {
+    constructor(battle, unit, actionType, target) {
+        this.type = actionType;
+        this.unit = unit;
+        this.ctr = Math.floor(Math.random() * 20);
+        this.priority = 1;
+        this.ready = this.ctr === 0;
+        this.remove = false;
+        this.pda = false; //position-dependent action
+        this.sticky = false; //might not need this due to target property
+        this.target = target; //either a unit or tile
+    }
+
+    tick() {
+        this.ctr -= 1;
+        if (this.ctr <= 0) {
+            this.ctr = 0;
+            this.ready = true;
+        }
+    }
+
+    invoke() {
+        this.done();
+        return null;
+    }
+
+    done() {
+        console.log("Unit No. " + this.unit.sprite + " used " + this.type);
+        this.remove = true;
+        this.unit.actionmove = null;
+    }
+
+    toString() {
+        return "Action - Type: " + this.type + ", Unit No. " + this.unit.sprite + ", - CTR: " + this.ctr  + ", Ready: " + this.ready;
+    }
+}
+
+class DoNothing {
+    constructor(battle, unit) {
+        this.ctr = 0;
+        this.ready = true;
+    }
+
+    invoke() {
+        this.done();
+        this.unit.actionmove = null;
+        return null;
+    }
+
+    done() {
+        console.log("Unit No. " + this.unit.sprite + " did nothing...");
+    }
+
+    toString() {
+        return "Unit No. " + this.unit.sprite + ", - CTR: " + this.ctr  + ", Ready: " + this.ready;
+    }
+}
+
+class GameBattle {
+    constructor() {
+        this.units = [
+            new BattleUnit(0),
+            new BattleUnit(0),
+            new BattleUnit(0),
+            new BattleUnit(0),
+            new BattleUnit(1),
+            new BattleUnit(1),
+            new BattleUnit(1),
+            new BattleUnit(1),
+        ];
+        this.queue = new BattleQueue(this.units);
+        this.activeItem = null;
+
+        this.tile = generateTiles(8, 8);
+    }
+
+    start() {
+        this.units.forEach(function(u) {
+            u.done();
+        });
+    }
+
+    update() {
+        
+        if (this.activeItem) {
+            this.activeItem = this.activeItem.invoke(this);
+            this.queue.sort();
+        }
+        else {
+            this.activeItem = this.queue.tick();
+        }
+
+        output.value = this.queue.toString();
+    }
+
+    moveUnit(unit, node) {
+        this.tile[unit.x][unit.y].removeUnit(unit);
+        unit.x = node.x;
+        unit.y = node.y;
+        this.tile[unit.x][unit.y].addUnit(unit);
+    }
+
+    draw(ctx) {
+        ctx.clearRect(0, 0, 640, 480);
+        for (var x=0; x<8; x++) {
+            for (var y=0; y<8; y++) {
+                ctx.fillStyle = "rgb(0,150,50)";
+                ctx.fillRect(x * 60, y * 60, 59, 59);
+            }
+        }
+
+        this.units.forEach(function(u) {
+            u.draw(ctx);
+        });
+    }
+}
+
+var canvas, context;
+var output;
+var battle;
+var lasttick = 0;
+
+function update() {
+    if (Date.now() > lasttick + INTERVAL) {
+        battle.update();
+        lasttick = Date.now();
+    }
+    draw();
+    //window.requestAnimationFrame(update);
+}
+
+function draw() {
+    battle.draw(context);
+}
+
+function init() {
+    battle = new GameBattle();
+    battle.start();
+
+    var b = document.getElementById("nexttick");
+    b.onclick = function() {
+        update();
+    };
+
+    //update();
+}
+
+window.onload = function() {
+    canvas = document.getElementById("canvas");
+    context = canvas.getContext("2d");
+    output = document.getElementById("output");
+    init();  
+};
+
+</script>
+
+</head>
+
+<body>
+
+<canvas id="canvas" width="640" height="480"></canvas>
+
+<textarea id="output" cols="80" rows="20"></textarea>
+<button id="nexttick">Next</button>
+
+</body>
+
+</html>

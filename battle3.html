@@ -1,0 +1,64 @@
+<!doctype html>
+<html>
+    <head>
+        <script src="action.js"></script>
+        <script src="movement.js"></script>
+        <script src="map.js"></script>
+        <script src="battle.js"></script>
+        <script>
+
+var canvas, context;
+var output;
+var battle;
+var lasttick = 0; INTERVAL = 100;
+
+function update() {
+    if (Date.now() > lasttick + INTERVAL) {
+        battle.update();
+        lasttick = Date.now();
+    }
+    draw();
+    //window.requestAnimationFrame(update);
+}
+
+function draw() {
+    battle.draw(context);
+}
+
+function init() {
+    battle = new GameBattle();
+    battle.addUnit(new BattleUnit(0, "bash"));
+    battle.addUnit(new BattleUnit(0, "bash"));
+    battle.addUnit(new BattleUnit(0, "bash"));
+    battle.addUnit(new BattleUnit(0, "bash"));
+    battle.addUnit(new BattleUnit(1, "bash"));
+    battle.addUnit(new BattleUnit(1, "bash"));
+    battle.addUnit(new BattleUnit(1, "bash"));
+    battle.addUnit(new BattleUnit(1, "bash"));
+
+    battle.start();
+
+    var b = document.getElementById("nexttick");
+    b.onclick = function() {
+        update();
+    };
+
+    //update();
+}
+
+window.onload = function() {
+    canvas = document.getElementById("canvas");
+    context = canvas.getContext("2d");
+    output = document.getElementById("output");
+    init();  
+};
+
+        </script>
+    </head>
+    <body>
+        <canvas id="canvas" width="640" height="480"></canvas>
+
+        <textarea id="output" cols="80" rows="20"></textarea>
+        <button id="nexttick">Next</button>
+    </body>
+</html>
