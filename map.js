@@ -33,8 +33,15 @@ class Tile {
         var dx = this.x*TILE_WIDTH;
         var dy = this.y*TILE_HEIGHT;
         ctx.fillStyle = this.color;
-        //ctx.fillRect(dx, dy, TILE_WIDTH-1, TILE_HEIGHT-1);
-        ctx.fillText(this.sprite, dx, dy);
+        ctx.beginPath();
+        ctx.lineWidth="2";
+        ctx.strokeStyle="rgb(200,200,200)";
+        ctx.rect(dx,dy,TILE_WIDTH,TILE_HEIGHT);
+        ctx.stroke();
+        
+        if (this.sprite) {
+            ctx.fillText(this.sprite, dx, dy);
+        }
     }
 
     addUnit(unit) {

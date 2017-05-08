@@ -17,7 +17,7 @@ function createDiamond(x, y, range, includeCenter) {
 }
 
 function getDamage(actor, target, action) {
-    var damage = 10;
+    var damage = Math.floor(Math.random() * 6) + Math.floor(Math.random() * 6) + 2;
 
     return damage;
 }
@@ -52,8 +52,14 @@ function generateCoverage(tiles, units, unit) {
                 action.spread.forEach(function(s) {
                     var x = s[0] + d.x; //target node x
                     var y = s[1] + d.y; //target node y
-
+                    
                     if (inRange(x, y)) { //if target node is in range
+                        //save spread so queue can see if action contains point (or something like that)
+                        newspread.push({
+                            x: x,
+                            y: y
+                        });
+
                         var target = null;
 
                         if (x === node.x && y === node.y) { //is this where the actor is moving to?
@@ -90,7 +96,8 @@ function generateCoverage(tiles, units, unit) {
                     targetY: d.y,
                     distance: distance,
                     damage: totalDamage,
-                    score: totalScore
+                    score: totalScore,
+                    spread: newspread
                 });
 
                 min = totalScore < min ? totalScore : min;

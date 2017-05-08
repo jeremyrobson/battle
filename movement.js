@@ -21,8 +21,8 @@ class MoveNode {
         var node = this;
 
         while (node) {
-            ctx.fillStyle = "rgba(255, 255, 0, 0.5)";
-            ctx.fillRect(node.x * TILE_WIDTH, node.y * TILE_HEIGHT, TILE_WIDTH, TILE_HEIGHT);
+            ctx.fillStyle = "rgba(0, 0, 155, 0.8)";
+            ctx.fillRect(node.x * TILE_WIDTH, node.y * TILE_HEIGHT, TILE_WIDTH - 1, TILE_HEIGHT - 1);
             node = node.parent;
         }
     }
@@ -32,29 +32,30 @@ class MoveNode {
     }
 }
 
-function getSafetyScore(battle, units, unit, x, y) {
+function getTileSafetyScore(battle, units, unit, x, y) {
     var safetyScore = 0;
 
     units.forEach(function(u) {
+        if (u.id === unit.id) {
+            return;
+        }
+
         var dx = x - u.x;
         var dy = y - u.y;
         var distance = Math.sqrt(dx*dx + dy*dy);
-        if (distance === 0) { //distance from self
-            safetyScore += 0;
-        }
-        else if (u.team === unit.team) { //distance from ally
-            safetyScore += (1 / distance);
+        if (u.team === unit.team) { //distance from ally
+            safetyScore += (distance === 0) ? 1 : (1 / distance);
         }
         else { //distance from enemy
-            safetyScore -= (1 / distance);
+            safetyScore -= (distance === 0) ? 1 : (1 / distance);
         }
     });
 
     //check queue for future action spreads that hit this tile
-    var actions = battle.queue.getActions(x, y, 20);
+    var actions = battle.queue.getActions(x, y, 20); //find all actions under 20 ctr
     actions.forEach(function(action) {
         // "what if" the unit moved to the proposed x,y?
-        var damage = action.getDamage(unit);
+        var damage = getDamage(action.actor, unit, action.action);
         if (damage > 0) { //unit would be damaged
             safetyScore -= 1;
         }
@@ -133,9 +134,16 @@ function getMapNodes(map, width, height, units, unit, maxSteps) {
         i++;
     }
 
-    //remove occupied mapNodes
+    //remove occupied mapNodes UNLESS occupied by self
     nodeList = nodeList.filter(function(node) {
-        return map[node.x][node.y].units.length === 0;
+        if (map[node.x][node.y].units.length > 0) { //if there are units
+            if (map[node.x][node.y].units[0].id === unit.id) { //if unit is self
+                return true; //node is valid
+            }
+        }
+        else { //if there are no units
+            return true; //node is valid
+        }
     });
 
     nodeList.forEach(function(node) {

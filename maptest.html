@@ -20,7 +20,7 @@ const MAP_HEIGHT = 10;
 const TILE_WIDTH = 40;
 const TILE_HEIGHT = 40;
 const UNIT_FONT = "16px Arial";
-const INTERVAL = 1000;
+const INTERVAL = 500;
 var canvas, context;
 var battle;
 var lasttick = 0;
@@ -47,28 +47,6 @@ function getTileMovementScore(battle, units, unit, x, y) {
     return movementScore;
 }
 
-function getTileSafetyScore(battle, units, unit, x, y) {
-    var safetyScore = 0;
-
-    units.forEach(function(u) {
-        if (u.id === unit.id) {
-            return;
-        }
-
-        var dx = x - u.x;
-        var dy = y - u.y;
-        var distance = Math.sqrt(dx*dx + dy*dy);
-        if (u.team === unit.team) { //distance from ally
-            safetyScore += (distance === 0) ? 1 : (1 / distance);
-        }
-        else { //distance from enemy
-            safetyScore -= (distance === 0) ? 1 : (1 / distance);
-        }
-    });
-
-    return safetyScore;
-}
-
 function update() {
     if (Date.now() > lasttick + INTERVAL) {
         battle.update();
@@ -88,7 +66,7 @@ function generateSafetyMap(units, unit) {
 
     for (var x=0; x<MAP_WIDTH; x++) {
         for (var y=0; y<MAP_HEIGHT; y++) {
-            var safetyScore = getTileSafetyScore(null, units, unit, x, y);
+            var safetyScore = getTileSafetyScore(battle, units, unit, x, y);
             safetyMap.push({
                 "x": x,
                 "y": y,

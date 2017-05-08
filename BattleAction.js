@@ -1,9 +1,10 @@
 class BattleAction {
     constructor(battle, unit, coverage) {
         this.unit = unit;
+        this.action = coverage.action;  //what???
         this.ctr = Math.floor(Math.random() * 20); //actions[action].ctr;
         this.range = coverage.action.range;
-        //this.spread = getSpread(x, y, action);
+        this.spread = coverage.spread;
         this.x = coverage.targetX;
         this.y = coverage.targetY;
         this.node = coverage.node; //where the unit must be to complete action
@@ -30,14 +31,11 @@ class BattleAction {
     done() {
         this.remove = true;
         this.unit.actionmove = null;
+        console.log("cleared unit " + this.unit.id + "'s actionmove");
     }
 
     draw(ctx) {
 
-    }
-
-    getDamage(target) {
-        return Math.floor(Math.random() * 6) + Math.floor(Math.random() * 6) + 2;
     }
 
     mustMoveFirst() {

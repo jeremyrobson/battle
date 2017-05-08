@@ -56,6 +56,8 @@ class GameBattle {
             });
         }
 
+        this.queue.draw(ctx);
+
         for (var x=0; x<MAP_WIDTH; x++) {
             for (var y=0; y<MAP_HEIGHT; y++) {
                 this.tiles[x][y].draw(ctx);
@@ -64,6 +66,14 @@ class GameBattle {
 
         if (this.activeItem instanceof BattleMove) {
             this.activeItem.node.draw(ctx);
+        }
+
+        if (this.activeItem instanceof BattleUnit) {
+            ctx.beginPath();
+            ctx.lineWidth="2";
+            ctx.strokeStyle="rgb(0,200,0)";
+            ctx.rect(this.activeItem.x*TILE_WIDTH,this.activeItem.y*TILE_HEIGHT,TILE_WIDTH,TILE_HEIGHT);
+            ctx.stroke();
         }
 
         this.units.forEach(function(u) {

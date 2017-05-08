@@ -35,36 +35,53 @@ class BattleUnit {
 
     invoke(battle) {
         this.safetyMap = generateSafetyMap(battle.units, this);
+        var coverage = generateCoverage(battle.tiles, battle.units, this);
 
-        if (this.actionmove) { //unit is already charging
-            console.log("Unit No. " + this.actionmove.unit.id + " is already preparing to act.");
-        }
-        else {
-            if (!this.moved && !this.acted) {
-                var coverage = generateCoverage(battle.tiles, battle.units, this);
+        if (!this.moved && !this.acted) {
+            if (this.actionmove) {
+                console.log("Unit No. " + this.actionmove.unit.id + " is already preparing to act.");
+                //todo: if action is sticky, allow movement
+                this.acted = true;
+            }
+            else {
                 this.actionmove = new BattleAction(battle, this, coverage[0]);
 
                 //if the node is different from the unit location, the unit must move into position
                 if (this.actionmove.node.x != this.x || this.actionmove.node.y != this.y) {
                     battle.queue.add(new BattleMove(this, this.actionmove.node));
+                    battle.queue.add(this.actionmove);
+                    this.moved = true;
+                }
+                else {
+                    battle.queue.add(this.actionmove);
+                    this.acted = true;
                 }
             }
-            else if (this.acted && !this.moved) {
-                console.log("Already acted.");
-                this.actionmove = getBestMove(battle, this);
-            }
-            else if (!this.acted && this.moved) {
-                console.log("Already moved.");
-                this.actionmove = getBestAction(battle, this);
+        }
+        else if (this.acted && !this.moved) {
+            battle.queue.add(new BattleMove(this, coverage[0].node));
+            this.done();
+            return null;
+        }
+        else if (!this.acted && this.moved) {
+            if (this.actionmove) {
+                console.log("I SAID Unit No. " + this.actionmove.unit.id + " is already preparing to act!!!");
             }
             else {
-                console.log("Doing nothing.");
-                this.actionmove = new DoNothing();
+                this.actionmove = new BattleAction(battle, this, coverage[0]);
+                battle.queue.add(this.actionmove);
             }
-            battle.queue.add(this.actionmove);
+            this.acted = true;
+            this.done();
+            return null;
         }
-        this.done();
-        return null;
+        else {
+            //battle.queue.add(new DoNothing(battle, this));
+            this.done();
+            return null;
+        }
+
+        return this;
     }
 
     done() {
@@ -82,6 +99,8 @@ class BattleUnit {
         }
         this.ctr = Math.ceil(this.ct / this.agl);
         this.ready = false;
+        this.moved = false;
+        this.acted = false;
     }
 
     draw(ctx) {

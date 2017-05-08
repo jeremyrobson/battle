@@ -43,6 +43,28 @@ class BattleQueue {
         });
     }
 
+    draw(ctx) {
+        this.list.forEach(function(item) {
+            if (item instanceof BattleAction) {
+                item.spread.forEach(function(s) {
+                    ctx.fillStyle = "rgba(255, 0, 255, 1.0)";
+                    ctx.fillRect(s.x * TILE_WIDTH, s.y * TILE_HEIGHT, TILE_WIDTH - 1, TILE_HEIGHT - 1);
+                    ctx.fillStyle = "rgba(255,255,255,1.0)";
+                    ctx.font = "16px Arial";
+                    ctx.fillText(item.ctr, s.x * TILE_WIDTH + 16, s.y * TILE_WIDTH + 16);
+                });
+            }
+        });
+    }
+
+    getActions(x, y, ctr) {
+        return this.list.filter(function(item) {
+            return item instanceof BattleAction && 
+                item.ctr <= ctr &&
+                listHasPoint(item.spread, x, y);
+        });
+    }
+
     toString() {
         var outputText = "";
         this.list.forEach(function(item) {
