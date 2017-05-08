@@ -71,7 +71,7 @@ class GameAPI {
                 "user_id" => intval($row["user_id"]),
                 "color" => $row["color"],
                 "sprite" => intval($row["sprite"]),
-                "job" => @$jobs[intval($row["jobclass_id"])]
+                "jobclass" => @$jobs[intval($row["jobclass_id"])]
             );
         }
 

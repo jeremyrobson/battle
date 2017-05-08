@@ -1,12 +1,12 @@
 class BattleAction {
-    constructor(battle, unit, action, d, node, score) {
+    constructor(battle, unit, coverage) {
         this.unit = unit;
         this.ctr = Math.floor(Math.random() * 20); //actions[action].ctr;
-        this.range = action.range;
-        this.spread = getSpread(x, y, action);
-        this.x = d.x;
-        this.y = d.y;
-        this.node = node; //where the unit must be to complete action
+        this.range = coverage.action.range;
+        //this.spread = getSpread(x, y, action);
+        this.x = coverage.targetX;
+        this.y = coverage.targetY;
+        this.node = coverage.node; //where the unit must be to complete action
         this.ready = false;
         this.remove = false;
         this.score = 0;
@@ -45,7 +45,7 @@ class BattleAction {
     }
 
     toString() {
-        return "Action - Unit No. " + this.unit.sprite + " - CTR: " + this.ctr + ", Node: " + this.x + ", " + this.y;
+        return "Action - " + this.unit.sprite + " - CTR: " + this.ctr + ", Node: " + this.x + ", " + this.y;
     }
 }
 

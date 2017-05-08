@@ -1,5 +1,4 @@
 function loadUnits(callback) {
-    var units = [];
     var data = {};
 
     $.ajax({
@@ -9,23 +8,23 @@ function loadUnits(callback) {
         "data": data
     })
     .done(function(data) {
-        
+        var units = [];
+
         console.log("unit data", data);
         data.forEach(function(item) {
             units.push(new BattleUnit(
                 item["unit_id"],
                 item["party_id"],
                 item["sprite"],
-                item["color"]
+                item["color"],
+                item["jobclass"]
             ));
         });
 
-        callback();
+        callback(units);
     })
     .fail(function(data) {
         console.log(data);
         console.error("didn't work");
     });
-
-    return units;
 }

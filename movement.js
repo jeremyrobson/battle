@@ -18,8 +18,13 @@ class MoveNode {
     }
 
     draw(ctx) {
-        ctx.fillStyle = "rgba(255, 255, 0, 0.8)";
-        ctx.fillRect(this.x * TILE_WIDTH, this.y * TILE_HEIGHT, TILE_WIDTH, TILE_HEIGHT);
+        var node = this;
+
+        while (node) {
+            ctx.fillStyle = "rgba(255, 255, 0, 0.5)";
+            ctx.fillRect(node.x * TILE_WIDTH, node.y * TILE_HEIGHT, TILE_WIDTH, TILE_HEIGHT);
+            node = node.parent;
+        }
     }
 
     toString() {

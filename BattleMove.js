@@ -35,7 +35,7 @@ class BattleMove {
     }
 
     toString() {
-        return "Move - Unit No. " + this.unit.sprite + " - CTR: " + this.ctr + ", Node: " + this.node.x + ", " + this.node.y;
+        return "Move - " + this.unit.sprite + " - CTR: " + this.ctr + ", Node: " + this.node.x + ", " + this.node.y;
     }
 }
 

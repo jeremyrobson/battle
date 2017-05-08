@@ -28,60 +28,6 @@ function getBestMove(battle, unit) {
     return bestMove;
 }
 
-class BattleQueue {
-    constructor(units) {
-        this.list = [];
-        this.buffer = [];
-
-        units.forEach(function(u) {
-            this.list.push(u);
-        }, this);
-    }
-
-    tick() {
-        this.list = this.list.filter(function(item) {
-            return !item.remove;
-        });
-
-        this.sort();
-
-        if (this.list[0].ready) {
-            return this.list[0];
-        }
-
-        this.list.forEach(function(item) {
-            item.tick();
-        });
-
-        return null;
-    }
-
-    add(item) {
-        this.list.push(item);
-        this.sort();
-    }
-
-    sort() {
-        this.list.sort(function(a, b) {
-            if (a.ctr < b.ctr) return -1;
-            if (a.ctr > b.ctr) return 1;
-            if (a.priority > b.priority) return -1;
-            if (a.priority < b.priority) return 1;
-            if (a.id < b.id) return -1;
-            if (a.id > b.id) return 1;
-            return 0; //this should never happen
-        });
-    }
-
-    toString() {
-        var outputText = "";
-        this.list.forEach(function(item) {
-            outputText += item.toString() + "\n";
-        });
-        return outputText;
-    }
-}
-
 class BattleMove {
     constructor(battle, unit, node) {
         this.unit = unit;
@@ -163,64 +109,7 @@ class DoNothing {
     }
 }
 
-class GameBattle {
-    constructor() {
-        this.units = [
-            new BattleUnit(0),
-            new BattleUnit(0),
-            new BattleUnit(0),
-            new BattleUnit(0),
-            new BattleUnit(1),
-            new BattleUnit(1),
-            new BattleUnit(1),
-            new BattleUnit(1),
-        ];
-        this.queue = new BattleQueue(this.units);
-        this.activeItem = null;
 
-        this.tile = generateTiles(8, 8);
-    }
-
-    start() {
-        this.units.forEach(function(u) {
-            u.done();
-        });
-    }
-
-    update() {
-        
-        if (this.activeItem) {
-            this.activeItem = this.activeItem.invoke(this);
-            this.queue.sort();
-        }
-        else {
-            this.activeItem = this.queue.tick();
-        }
-
-        output.value = this.queue.toString();
-    }
-
-    moveUnit(unit, node) {
-        this.tile[unit.x][unit.y].removeUnit(unit);
-        unit.x = node.x;
-        unit.y = node.y;
-        this.tile[unit.x][unit.y].addUnit(unit);
-    }
-
-    draw(ctx) {
-        ctx.clearRect(0, 0, 640, 480);
-        for (var x=0; x<8; x++) {
-            for (var y=0; y<8; y++) {
-                ctx.fillStyle = "rgb(0,150,50)";
-                ctx.fillRect(x * 60, y * 60, 59, 59);
-            }
-        }
-
-        this.units.forEach(function(u) {
-            u.draw(ctx);
-        });
-    }
-}
 
 var canvas, context;
 var output;

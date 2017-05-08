@@ -7,18 +7,23 @@
 <script src="movement.js"></script>
 <script src="action.js"></script>
 <script src="map.js"></script>
+<script src="BattleQueue.js"></script>
+<script src="BattleMove.js"></script>
+<script src="BattleAction.js"></script>
 <script src="BattleUnit.js"></script>
+<script src="GameBattle.js"></script>
 <script src="ajax.js"></script>
 <script>
 
-const MAP_WIDTH = 20;
-const MAP_HEIGHT = 20;
-const TILE_WIDTH = 24;
-const TILE_HEIGHT = 24;
+const MAP_WIDTH = 10;
+const MAP_HEIGHT = 10;
+const TILE_WIDTH = 40;
+const TILE_HEIGHT = 40;
 const UNIT_FONT = "16px Arial";
+const INTERVAL = 1000;
 var canvas, context;
-var users, parties, units;
-var tiles, nodes, ranges;
+var battle;
+var lasttick = 0;
 
 function getTileMovementScore(battle, units, unit, x, y) {
     var movementScore = 0;
@@ -64,83 +69,47 @@ function getTileSafetyScore(battle, units, unit, x, y) {
     return safetyScore;
 }
 
-function loop() {
+function update() {
+    if (Date.now() > lasttick + INTERVAL) {
+        battle.update();
+        lasttick = Date.now();
+    }
     draw();
-    requestAnimationFrame(loop);
-}
-
-function drawNodes(ctx) {
-    nodes.forEach(function(node) {
-        var r = Math.floor(node.stepScore * 255);
-        var g = Math.floor((1-node.stepScore) * 255);
-        ctx.fillStyle = "rgba("+r+","+g+",0,1.0)";
-        ctx.fillRect(node.x*TILE_WIDTH, node.y*TILE_WIDTH, TILE_WIDTH-1, TILE_WIDTH-1);
-    });
-}
-
-function drawSafetyScores(ctx) {
-    tilelist.forEach(function(t) {
-        var r = Math.floor(t.safetyScore * 255);
-        var g = Math.floor((1-t.safetyScore) * 255);
-        ctx.fillStyle = "rgba("+r+","+g+",0,1.0)";
-        ctx.fillRect(t.x*TILE_WIDTH, t.y*TILE_WIDTH, TILE_WIDTH-1, TILE_WIDTH-1);
-    });
+    requestAnimationFrame(update);
 }
 
 function draw() {
-    context.clearRect(0, 0, 640, 480);
-    context.shadowBlur = 0;
-    context.shadowOffsetX = 0;
-    context.shadowOffsetY = 0;
-    for (var x=0; x<MAP_WIDTH; x++) {
-        for (var y=0; y<MAP_HEIGHT; y++) {
-            context.fillStyle = "rgb(0,0,0)";
-            context.fillRect(x*TILE_WIDTH, y*TILE_HEIGHT, TILE_WIDTH-1, TILE_HEIGHT-1);
-        }
-    }
-
-    ranges
-
-    units.forEach(function(u) {
-        u.draw(context);
-    });
+    battle.draw(context);
 }
 
-function init() {
-    var minSafetyScore = 0, maxSafetyScore = 0;
+function generateSafetyMap(units, unit) {
+    var min = 0, max = 1;
+    var safetyMap = [];
 
-    tiles = generateTiles(MAP_WIDTH, MAP_HEIGHT);
-
-    units.forEach(function(u) {
-        tiles[u.x][u.y].addUnit(u);
-    });
-
-    /*
     for (var x=0; x<MAP_WIDTH; x++) {
         for (var y=0; y<MAP_HEIGHT; y++) {
-            var safetyScore = getTileSafetyScore(null, units, units[1], x, y);
-            tilelist.push({
+            var safetyScore = getTileSafetyScore(null, units, unit, x, y);
+            safetyMap.push({
                 "x": x,
                 "y": y,
                 "safetyScore": safetyScore
             });
-            minSafetyScore = safetyScore < minSafetyScore ? safetyScore : minSafetyScore;
-            maxSafetyScore = safetyScore > maxSafetyScore ? safetyScore : maxSafetyScore;
+            min = safetyScore < min ? safetyScore : min;
+            max = safetyScore > max ? safetyScore : max;
         }
     }
 
-
-    //normalize safety scores between 0 and 1
-    tilelist.forEach(function(tile) {
-        tile.safetyScore = (tile.safetyScore - minSafetyScore) / (maxSafetyScore - minSafetyScore);
+    safetyMap.forEach(function(tile) {
+        tile.safetyScore = (tile.safetyScore - min) / (max - min);
     });
-    */
 
-    //nodes = getMapNodes(tiles, MAP_WIDTH, MAP_HEIGHT, units, units[0], 100);
+    return safetyMap;
+}
 
-    ranges = createDiamond(units[0].x, units[0].y, 7, false);
-
-    requestAnimationFrame(loop);
+function init(units) {
+    battle = new GameBattle(units);
+    battle.start();
+    update();
 }
 
 window.onload = function() {
@@ -156,7 +125,16 @@ window.onload = function() {
 
 <body>
 
-<canvas id="canvas" width="640" height="480"></canvas>
+<table>
+    <tr>
+        <td valign="top">
+            <canvas id="canvas" width="640" height="480"></canvas>
+        </td>
+        <td valign="top">
+            <textarea id="output" cols="80" rows="20"></textarea>
+        </td>
+    </tr>
+</table>
 
 </body>
 
