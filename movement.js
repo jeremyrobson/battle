@@ -17,6 +17,10 @@ class MoveNode {
         this.stepScore = 0;
     }
 
+    equals(x, y) {
+        return this.x === x && this.y === y;
+    }
+
     draw(ctx) {
         var node = this;
 
@@ -153,14 +157,14 @@ function getMapNodes(map, width, height, units, unit, maxSteps) {
     return nodeList;
 }
 
-function getPath(move) {
+function getPath(node) {
     var path = [];
 
-    var node = move;
+    var current = node;
 
-    while (node) {
-        path.push(node);
-        node = node.parent;
+    while (current) {
+        path.push(current);
+        current = current.parent;
     }
 
     return path.reverse();

@@ -1,0 +1,269 @@
+<!doctype html>
+<html>
+
+<head>
+
+<script src="BattleMove.js"></script>
+<script src="BattleAction.js"></script>
+<script src="movement.js"></script>
+<script src="BattleMap.js"></script>
+<script src="BattleQueue.js"></script>
+<script>
+
+var INTERVAL = 500;
+var lasttick = 0;
+
+const MAP_WIDTH = 16;
+const MAP_HEIGHT = 16;
+const TILE_WIDTH = 24;
+const TILE_HEIGHT = 24;
+var canvas, context;
+var map;
+var units = [];
+var queue;
+var activeItem = null;
+var output;
+
+function getBestAction(unit) {
+    var coverage = generateCoverage(map.tiles, units, unit);
+
+    //if already moved, only look at coverage that does not require movement
+    if (unit.moved) {
+        coverage = coverage.filter(function(c) {
+            return c.node.equals(unit.x, unit.y);
+        });
+    }
+
+    return coverage[0];
+}
+
+function getClosestTarget(unit) {
+
+}
+
+function getPathToTarget(unit, target) {
+
+}
+
+class GameAction {
+    constructor(unit, x, y, node) {
+        this.unit = unit;
+        this.x = x;
+        this.y = y;
+        this.node = node;
+        this.ctr = Math.floor(Math.random() * 30);
+        this.ready = false;
+    }
+
+    tick() {
+        this.ctr -= 1;
+        if (this.ctr <= 0) {
+            this.ctr = 0;
+            this.ready = true;
+        }
+    }
+
+    invoke() {
+        console.log("invoked action");
+        return null;
+    }
+}
+
+class GameUnit {
+    constructor(x, y, name, team) {
+        this.id = Math.floor(Math.random() * 1000000);
+        this.x = x;
+        this.y = y;
+        this.name = name;
+        this.sprite = name;
+        this.team = team;
+        this.action = null;
+        this.move = 3;
+        this.agl = Math.floor(Math.random() * 9) + 1;
+        this.status = "alive";
+        this.ct = 100;
+        this.ctr = 0;
+        this.priority = 0;
+        this.ready = false;
+        this.moved = false;
+        this.acted = false;
+        this.jobclass = {
+            actions: [
+                {
+                    "name": "bash",
+                    "range": 3,
+                    "spread": [[0,1],[1,0],[-1,0],[0,-1]]
+                }
+            ]
+        }
+    }
+
+    tick() {
+        if (this.ctr <= 0) {
+            this.ctr = 0;
+            this.ready = true;
+        }
+        else {
+            this.ctr -= 1;
+        }
+    }
+
+    invoke() {
+        console.log("Unit: invoke");
+
+        //am i currently moving?
+        if (this.node) {
+            console.log("Unit: moving");
+            this.move(this.node.x, this.node.y);
+            this.node = this.node.parent;
+        }
+        else {
+
+            //am i currently charging an action or have i already acted?
+            if (this.action || this.acted) {
+                console.log("Unit: charging or already acted");
+
+                var bestMove = getBestMove(map.tiles, units, this);
+                if (bestMove) {
+                    console.log("Unit: move");
+                    queue.add(bestMove);
+                }
+
+                this.done();
+                return null;
+            }
+            else {
+
+                //can i attack anyone in range?
+                var newAction = getBestAction(this);
+                if (newAction) {
+                    console.log("Unit: newAction");
+
+                    //must i move to a specific node before i invoke the action?
+                    if (!newAction.node.equals(this.x, this.y)) {
+                        console.log("Unit: queue move");
+
+                        //add movement to queue and discard action
+                        //a new action will be found after the unit has moved
+                        //if the discarded action was the best, it will be selected again
+                        //but this time with 
+                        queue.add(new BattleMove(this, newAction.node));
+                    }
+                    else {
+                        console.log("Unit: queue action");
+
+                        this.action = newAction;
+
+                        //add action to queue
+                        queue.add(new BattleAction(this, newAction));
+                    }
+
+                    this.done();
+                    return null;
+                }
+                else {
+                    console.log("Unit: move towards enemy");
+
+                    //who is the closest enemy i can move towards?
+                    var target = getClosestTarget(this);
+                    var newNode = getPathToTarget(this, target);
+                    //move to newnode
+                }
+            }
+        }
+    }
+
+    done() {
+        console.log("Unit: done");
+
+        if (this.moved && this.acted) {
+            this.ct = 100;
+        }
+        else if (this.moved) {
+            this.ct = 80;
+        }
+        else if (this.acted) {
+            this.ct = 80;
+        }
+        else {
+            this.ct = 60;
+        }
+        this.ctr = Math.ceil(this.ct / this.agl);
+        this.ready = false;
+        this.moved = false;
+        this.acted = false;
+    }
+
+    toString() {
+        return "Unit " + this.name + " CTR: " + this.ctr;
+    }
+
+}
+
+function loop() {
+    if (Date.now() > lasttick + INTERVAL) {
+        update();
+        lasttick = Date.now();
+    }
+
+    requestAnimationFrame(loop);
+}
+
+function update() {
+    if (activeItem) {
+        activeItem = activeItem.invoke(this);
+        queue.sort();
+    }
+    else {
+        activeItem = queue.tick();
+    }
+
+    output.value = queue.toString();
+
+    draw();
+}
+
+function draw() {
+    map.draw(context);
+
+    units.forEach(function(u) {
+        u.mapNodes && u.mapNodes.forEach(function(m) {
+            context.fillStyle = "rgba(255,0,255,0.5)";
+            context.fillRect(m.x * TILE_WIDTH, m.y * TILE_HEIGHT, TILE_WIDTH, TILE_HEIGHT);
+        });
+        context.fillStyle = u.team;
+        context.fillText(u.name,u.x*TILE_WIDTH,u.y*TILE_HEIGHT);
+    });
+}
+
+window.onload = function() {
+    canvas = document.getElementById("canvas");
+    context = canvas.getContext("2d");
+    context.textBaseline = "top";
+    context.font = "16px Arial";
+    output = document.getElementById("output");
+
+    units.push(new GameUnit(0,0,"a","rgb(0,0,255)"));
+    units.push(new GameUnit(3,0,"b","rgb(255,0,0)"));
+    //units.push(new GameUnit(15,15,"c","rgb(255,0,0)"));
+
+    queue = new BattleQueue(units);
+
+    map = new BattleMap(MAP_WIDTH, MAP_HEIGHT, units);
+
+    loop();
+};
+
+</script>
+
+</head>
+
+<body>
+
+<canvas id="canvas" width="640" height="480" style="float:left;"></canvas>
+
+<textarea id="output" cols="80" rows="20" style="float:left;"></textarea>
+
+</body>
+
+</html>

@@ -63,3 +63,32 @@ class Tile {
         return "X: " + this.x + ", Y: " + this.y + ", Units: " + this.units.length;
     }
 }
+
+class BattleMap {
+    constructor(width, height, units) {
+        this.width = width;
+        this.height = height;
+        this.tiles = generateTiles(width, height);
+        
+        units.forEach(function(u) {
+            this.tiles[u.x][u.y].addUnit(u);
+        }, this);
+    }
+
+    moveUnit(unit, x, y) {
+        this.tiles[unit.x][unit.y].removeUnit(unit);
+        unit.x = x;
+        unit.y = y;
+        this.tiles[x][y].addUnit(unit);
+    }
+
+    draw(ctx) {
+        ctx.clearRect(0, 0, 640, 480);
+
+        for (var x=0;x<MAP_WIDTH;x++) {
+            for (var y=0;y<MAP_HEIGHT;y++) {
+                this.tiles[x][y].draw(ctx);
+            }
+        }
+    }
+}
