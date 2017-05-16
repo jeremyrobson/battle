@@ -24,6 +24,12 @@ var queue;
 var activeItem = null;
 var output;
 
+function getDistance(a, b) {
+    var dx = a.x - b.x;
+    var dy = a.y - b.y;
+    return Math.sqrt(dx * dx + dy * dy);
+}
+
 function getBestAction(unit) {
     var coverage = generateCoverage(map.tiles, units, unit);
 
@@ -37,12 +43,28 @@ function getBestAction(unit) {
     return coverage[0];
 }
 
-function getClosestTarget(unit) {
+function getClosestEnemyTarget(unit) {
+    var targets = units.filter(function(u) {
+        return unit.team !== u.team && unit.id !== u.id;
+    });
 
+    targets.sort(function(a, b) {
+        var da = getDistance(unit, a);
+        var db = getDistance(unit, b);
+        return da - db;
+    });
+
+    return targets[0];
 }
 
-function getPathToTarget(unit, target) {
+function getTargetNode(unit, target) {
+    var mapNodes = getMapNodes(map.tiles, MAP_WIDTH, MAP_HEIGHT, units, unit, -999, false);
 
+    var targetNode = mapNodes.filter(function(node) {
+        return node.x === target.x && node.y === target.y;
+    })[0];
+
+    return targetNode;
 }
 
 class GameAction {
@@ -164,10 +186,17 @@ class GameUnit {
                 else {
                     console.log("Unit: move towards enemy");
 
-                    //who is the closest enemy i can move towards?
-                    var target = getClosestTarget(this);
-                    var newNode = getPathToTarget(this, target);
-                    //move to newnode
+                    //am i healthy enough to go on the offensive?
+                    if (this.isHealthy()) {
+                        var target = getClosestEnemyTarget(this);
+                        var targetNode = getTargetNode(this, target);
+
+                        //attempt to move to the node before the target
+                        queue.add(new BattleMove(this, targetNode.parent));
+
+                        this.done();
+                        return null;
+                    }
                 }
             }
         }
@@ -192,6 +221,10 @@ class GameUnit {
         this.ready = false;
         this.moved = false;
         this.acted = false;
+    }
+
+    isHealthy() {
+        return true;
     }
 
     toString() {

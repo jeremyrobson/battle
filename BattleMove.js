@@ -1,8 +1,9 @@
 function getBestMove(tiles, units, unit) {
     var bestMove = null;
 
-    var mapNodes = getMapNodes(tiles, MAP_WIDTH, MAP_HEIGHT, units, unit, -999);
+    var mapNodes = getMapNodes(tiles, MAP_WIDTH, MAP_HEIGHT, units, unit, -999, true);
 
+    //get nodes within movement distance
     mapNodes = mapNodes.filter(function(node) {
         return node.steps < unit.move;
     });
@@ -11,6 +12,9 @@ function getBestMove(tiles, units, unit) {
     if (unit.action) {
         //todo
         console.log("Move: already acting!!")
+
+        //will have to try move and test action from new location
+        //could be tricky
     }
 
     //mapNodes.sort(function(a, b) {
@@ -42,6 +46,10 @@ class BattleMove {
         this.ready = false;
         this.priority = 1;
         this.remove = false;
+
+        if (this.path.length > unit.move) {
+            this.path = this.path.slice(0, unit.move);
+        }
     }
 
     tick() {

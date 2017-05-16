@@ -80,6 +80,11 @@ class BattleMap {
         unit.x = x;
         unit.y = y;
         this.tiles[x][y].addUnit(unit);
+        console.log(unit.name + " moved to " + x + ", " + y);
+        if (this.tiles[x][y].units.length > 1) {
+            INTERVAL = 10000000;
+            console.log("error: units overlapped");
+        }
     }
 
     draw(ctx) {

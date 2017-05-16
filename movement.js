@@ -86,7 +86,7 @@ function createBinaryMap(map, width, height) {
     return bmap;
 }
 
-function getMapNodes(map, width, height, units, unit, maxSteps) {
+function getMapNodes(map, width, height, units, unit, maxSteps, filtered = false) {
     var binaryMap = createBinaryMap(map, width, height);
     binaryMap[unit.x][unit.y] = 1; //visit starting node
 
@@ -121,11 +121,14 @@ function getMapNodes(map, width, height, units, unit, maxSteps) {
 
             var mapUnit = map[x][y].units[0];
 
-            //if unit exists on node and is enemy
-            if (mapUnit && mapUnit.team !== unit.team) {
-                //if enemy is not dead
-                if (mapUnit.status !== "dead") {
-                    continue; //skip this node
+            //filter our enemy units
+            if (filtered) {
+                //if unit exists on node and is enemy
+                if (mapUnit && mapUnit.team !== unit.team) {
+                    //if enemy is not dead
+                    if (mapUnit.status !== "dead") {
+                        continue; //skip this node
+                    }
                 }
             }
 
@@ -138,21 +141,26 @@ function getMapNodes(map, width, height, units, unit, maxSteps) {
         i++;
     }
 
-    //remove occupied mapNodes UNLESS occupied by self
-    nodeList = nodeList.filter(function(node) {
-        if (map[node.x][node.y].units.length > 0) { //if there are units
-            if (map[node.x][node.y].units[0].id === unit.id) { //if unit is self
+    //filter out occupied nodes
+    if (filtered) {
+        //remove occupied mapNodes UNLESS occupied by self
+        nodeList = nodeList.filter(function(node) {
+            if (map[node.x][node.y].units.length > 0) { //if there are units
+                if (map[node.x][node.y].units[0].id === unit.id) { //if unit is self
+                    return true; //node is valid
+                }
+            }
+            else { //if there are no units
                 return true; //node is valid
             }
-        }
-        else { //if there are no units
-            return true; //node is valid
-        }
-    });
+        });
+    }
 
+    /*
     nodeList.forEach(function(node) {
         node.stepScore = (node.steps - min) / (max - min);
     });
+    */
 
     return nodeList;
 }
